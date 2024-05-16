@@ -1,0 +1,33 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of the go coverage tool
+*.cover
+
+# Output of the go command
+*.log
+
+# Dependency directories (remove the comment below if you uncomment it)
+# vendor/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+
+# Go build artifacts
+*.o
+*.a
+
+# Dependency files
+/go.sum
+/go.mod
+
+# Binaries
+gitconfig-cli
