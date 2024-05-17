@@ -113,30 +113,23 @@ func setupGitLocalUser() error {
 }
 
 func setupGitConfigLocalUser(email string) error {
-	err := runGitConfig("user.email", email)
-	if err != nil {
-		return fmt.Errorf("%s", err)
+	configurations := map[string]string{
+		"commit.gpgsign":      "true",
+		"tag.gpgsign":         "true",
+		"gpg.x509.program":    "gitsign",
+		"gpg.format":          "x509",
+		"gitsign.connectorID": "https://accounts.google.com",
 	}
-	err = runGitConfig("commit.gpgsign", "true")
-	if err != nil {
-		return fmt.Errorf("%s", err)
+
+	configurations["user.email"] = email
+
+	for key, value := range configurations {
+		err := runGitConfig(key, value)
+		if err != nil {
+			return fmt.Errorf("%s", err)
+		}
 	}
-	err = runGitConfig("tag.gpgsign", "true")
-	if err != nil {
-		return fmt.Errorf("%s", err)
-	}
-	err = runGitConfig("gpg.x509.program", "gitsign")
-	if err != nil {
-		return fmt.Errorf("%s", err)
-	}
-	err = runGitConfig("gpg.format", "x509")
-	if err != nil {
-		return fmt.Errorf("%s", err)
-	}
-	err = runGitConfig("gitsign.connectorID", "https://accounts.google.com")
-	if err != nil {
-		return fmt.Errorf("%s", err)
-	}
+
 	return nil
 }
 
