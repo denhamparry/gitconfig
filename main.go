@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -24,16 +25,30 @@ func main() {
 		Use:   "setup-gitsign",
 		Short: "Setup git signing configuration",
 		Run: func(cmd *cobra.Command, args []string) {
-			setupGitsign()
+			email, _ := cmd.Flags().GetString("email")
+			connectorID, _ := cmd.Flags().GetString("connectorID")
+			setupGitsign(email, connectorID)
 		},
 	}
 
+	var clearGitsignCmd = &cobra.Command{
+		Use:   "clear-gitsign",
+		Short: "Clear git signing configuration",
+		Run: func(cmd *cobra.Command, args []string) {
+			setupGitLocalCleanup()
+		},
+	}
+
+	setupGitsignCmd.Flags().StringP("email", "e", "", "Email address (optional)")
+	setupGitsignCmd.Flags().StringP("connectorID", "c", "https://accounts.google.com", "Connector ID (default: https://accounts.google.com)")
+
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log", "", "Set log level")
 	rootCmd.AddCommand(setupGitsignCmd)
+	rootCmd.AddCommand(clearGitsignCmd)
 	rootCmd.Execute()
 }
 
-func setupGitsign() {
+func setupGitsign(email string, connectorID string) {
 	err := checkDirectoryForGit()
 	if err != nil {
 		logError(err)
@@ -44,7 +59,7 @@ func setupGitsign() {
 		logError(err)
 		return
 	}
-	err = setupGitLocalUser()
+	err = setupGitLocalUser(email, connectorID)
 	if err != nil {
 		logError(err)
 		return
@@ -83,42 +98,41 @@ func setupGitLocalCleanup() error {
 	return nil
 }
 
-func setupGitLocalUser() error {
-	fmt.Println("Enter which email address to use:")
-	fmt.Println("1) lewis@denhamparry.co.uk")
-	fmt.Println("2) lewis@chainguard.dev")
-	fmt.Println("0) clear")
+func setupGitLocalUser(email string, connectorID string) error {
 
-	reader := bufio.NewReader(os.Stdin)
-	email, _ := reader.ReadString('\n')
-	email = strings.TrimSpace(email)
+	// If email is not provided, prompt user for email
+	if email == "" {
 
-	switch email {
-	case "1":
-		err := setupGitConfigLocalUser("lewis@denhamparry.co.uk")
+		fmt.Println("Enter an email address:")
+
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
 		if err != nil {
-			return fmt.Errorf("%s", err)
+			log.Fatalf("Failed to read input: %v", err)
 		}
-	case "2":
-		err := setupGitConfigLocalUser("lewis@chainguard.dev")
-		if err != nil {
-			return fmt.Errorf("%s", err)
-		}
-	case "0":
-
-	default:
-		fmt.Fprintln(os.Stdout, []any{"Invalid option"}...)
+		email = input
 	}
+
+	// Check that email is a valid email address
+	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+		log.Fatalf("Invalid email address")
+	}
+
+	err := setupGitConfigLocalUser(email, connectorID)
+	if err != nil {
+		log.Fatalf("Failed to set up git config: %v", err)
+	}
+
 	return nil
 }
 
-func setupGitConfigLocalUser(email string) error {
+func setupGitConfigLocalUser(email string, connectorID string) error {
 	configurations := map[string]string{
 		"commit.gpgsign":      "true",
 		"tag.gpgsign":         "true",
 		"gpg.x509.program":    "gitsign",
 		"gpg.format":          "x509",
-		"gitsign.connectorID": "https://accounts.google.com",
+		"gitsign.connectorID": connectorID,
 	}
 
 	configurations["user.email"] = email
