@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -13,30 +12,6 @@ import (
 )
 
 var logLevel string
-
-type Config struct {
-	Emails map[string]string `json:"emails"`
-}
-
-func loadConfig() (Config, error) {
-	var config Config
-
-	file, err := os.Open("config.json")
-	if err != nil {
-		log.Fatalf("Failed to open config file: %v", err)
-		return config, err
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
-	if err != nil {
-		log.Fatalf("Failed to decode config file: %v", err)
-		return config, err
-	}
-	println(config.Emails)
-	return config, nil
-}
 
 func main() {
 	var rootCmd = &cobra.Command{
@@ -50,16 +25,28 @@ func main() {
 		Use:   "setup-gitsign",
 		Short: "Setup git signing configuration",
 		Run: func(cmd *cobra.Command, args []string) {
-			setupGitsign()
+			email, _ := cmd.Flags().GetString("email")
+			setupGitsign(email)
 		},
 	}
 
+	var clearGitsignCmd = &cobra.Command{
+		Use:   "clear-gitsign",
+		Short: "Clear git signing configuration",
+		Run: func(cmd *cobra.Command, args []string) {
+			setupGitLocalCleanup()
+		},
+	}
+
+	setupGitsignCmd.Flags().StringP("email", "e", "", "Email address (optional)")
+
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log", "", "Set log level")
 	rootCmd.AddCommand(setupGitsignCmd)
+	rootCmd.AddCommand(clearGitsignCmd)
 	rootCmd.Execute()
 }
 
-func setupGitsign() {
+func setupGitsign(email string) {
 	err := checkDirectoryForGit()
 	if err != nil {
 		logError(err)
@@ -70,7 +57,7 @@ func setupGitsign() {
 		logError(err)
 		return
 	}
-	err = setupGitLocalUser()
+	err = setupGitLocalUser(email)
 	if err != nil {
 		logError(err)
 		return
@@ -109,37 +96,31 @@ func setupGitLocalCleanup() error {
 	return nil
 }
 
-func setupGitLocalUser() error {
+func setupGitLocalUser(email string) error {
 
-	config, err := loadConfig()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
+	// If email is not provided, prompt user for email
+	if email == "" {
 
-	fmt.Println("Enter which email address to use:")
-	for key, email := range config.Emails {
-		fmt.Printf("%s) %s\n", key, email)
-	}
-	fmt.Println("0) clear")
+		fmt.Println("Enter an email address:")
 
-	reader := bufio.NewReader(os.Stdin)
-	email, _ := reader.ReadString('\n')
-	email = strings.TrimSpace(email)
-
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	switch email {
-	case "1", "2":
-		err := setupGitConfigLocalUser(config.Emails[email])
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
 		if err != nil {
-			return fmt.Errorf("%s", err)
+			log.Fatalf("Failed to read input: %v", err)
 		}
-	case "0":
-	default:
-		fmt.Fprintln(os.Stdout, []any{"Invalid option"}...)
+		email = input
 	}
+
+	// Check that email is a valid email address
+	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+		log.Fatalf("Invalid email address")
+	}
+
+	err := setupGitConfigLocalUser(email)
+	if err != nil {
+		log.Fatalf("Failed to set up git config: %v", err)
+	}
+
 	return nil
 }
 
