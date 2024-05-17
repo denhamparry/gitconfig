@@ -26,7 +26,8 @@ func main() {
 		Short: "Setup git signing configuration",
 		Run: func(cmd *cobra.Command, args []string) {
 			email, _ := cmd.Flags().GetString("email")
-			setupGitsign(email)
+			connectorID, _ := cmd.Flags().GetString("connectorID")
+			setupGitsign(email, connectorID)
 		},
 	}
 
@@ -39,6 +40,7 @@ func main() {
 	}
 
 	setupGitsignCmd.Flags().StringP("email", "e", "", "Email address (optional)")
+	setupGitsignCmd.Flags().StringP("connectorID", "c", "https://accounts.google.com", "Connector ID (default: https://accounts.google.com)")
 
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log", "", "Set log level")
 	rootCmd.AddCommand(setupGitsignCmd)
@@ -46,7 +48,7 @@ func main() {
 	rootCmd.Execute()
 }
 
-func setupGitsign(email string) {
+func setupGitsign(email string, connectorID string) {
 	err := checkDirectoryForGit()
 	if err != nil {
 		logError(err)
@@ -57,7 +59,7 @@ func setupGitsign(email string) {
 		logError(err)
 		return
 	}
-	err = setupGitLocalUser(email)
+	err = setupGitLocalUser(email, connectorID)
 	if err != nil {
 		logError(err)
 		return
@@ -96,7 +98,7 @@ func setupGitLocalCleanup() error {
 	return nil
 }
 
-func setupGitLocalUser(email string) error {
+func setupGitLocalUser(email string, connectorID string) error {
 
 	// If email is not provided, prompt user for email
 	if email == "" {
@@ -116,7 +118,7 @@ func setupGitLocalUser(email string) error {
 		log.Fatalf("Invalid email address")
 	}
 
-	err := setupGitConfigLocalUser(email)
+	err := setupGitConfigLocalUser(email, connectorID)
 	if err != nil {
 		log.Fatalf("Failed to set up git config: %v", err)
 	}
@@ -124,13 +126,13 @@ func setupGitLocalUser(email string) error {
 	return nil
 }
 
-func setupGitConfigLocalUser(email string) error {
+func setupGitConfigLocalUser(email string, connectorID string) error {
 	configurations := map[string]string{
 		"commit.gpgsign":      "true",
 		"tag.gpgsign":         "true",
 		"gpg.x509.program":    "gitsign",
 		"gpg.format":          "x509",
-		"gitsign.connectorID": "https://accounts.google.com",
+		"gitsign.connectorID": connectorID,
 	}
 
 	configurations["user.email"] = email
