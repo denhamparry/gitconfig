@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,6 +13,30 @@ import (
 )
 
 var logLevel string
+
+type Config struct {
+	Emails map[string]string `json:"emails"`
+}
+
+func loadConfig() (Config, error) {
+	var config Config
+
+	file, err := os.Open("config.json")
+	if err != nil {
+		log.Fatalf("Failed to open config file: %v", err)
+		return config, err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&config)
+	if err != nil {
+		log.Fatalf("Failed to decode config file: %v", err)
+		return config, err
+	}
+	println(config.Emails)
+	return config, nil
+}
 
 func main() {
 	var rootCmd = &cobra.Command{
@@ -84,28 +110,33 @@ func setupGitLocalCleanup() error {
 }
 
 func setupGitLocalUser() error {
+
+	config, err := loadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	fmt.Println("Enter which email address to use:")
-	fmt.Println("1) lewis@denhamparry.co.uk")
-	fmt.Println("2) lewis@chainguard.dev")
+	for key, email := range config.Emails {
+		fmt.Printf("%s) %s\n", key, email)
+	}
 	fmt.Println("0) clear")
 
 	reader := bufio.NewReader(os.Stdin)
 	email, _ := reader.ReadString('\n')
 	email = strings.TrimSpace(email)
 
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	switch email {
-	case "1":
-		err := setupGitConfigLocalUser("lewis@denhamparry.co.uk")
-		if err != nil {
-			return fmt.Errorf("%s", err)
-		}
-	case "2":
-		err := setupGitConfigLocalUser("lewis@chainguard.dev")
+	case "1", "2":
+		err := setupGitConfigLocalUser(config.Emails[email])
 		if err != nil {
 			return fmt.Errorf("%s", err)
 		}
 	case "0":
-
 	default:
 		fmt.Fprintln(os.Stdout, []any{"Invalid option"}...)
 	}
